@@ -12,20 +12,6 @@ export const currentUser = {
   avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=Aarav",
 };
 
-export const leaveBalances = [
-  { type: "Earned Leave", balance: 12, total: 18, color: "hsl(160 84% 39%)" },
-  { type: "Casual Leave", balance: 4, total: 7, color: "hsl(217 91% 60%)" },
-  { type: "Sick Leave", balance: 6, total: 8, color: "hsl(38 92% 50%)" },
-  { type: "Comp Off", balance: 2, total: 2, color: "hsl(280 70% 60%)" },
-];
-
-export const recentLeaves = [
-  { id: "L-2401", type: "Earned Leave", from: "2026-04-28", to: "2026-04-30", days: 3, status: "Approved", reason: "Family event" },
-  { id: "L-2398", type: "Sick Leave", from: "2026-04-12", to: "2026-04-12", days: 1, status: "Approved", reason: "Flu" },
-  { id: "L-2391", type: "Casual Leave", from: "2026-05-10", to: "2026-05-11", days: 2, status: "Pending", reason: "Personal work" },
-  { id: "L-2380", type: "Earned Leave", from: "2026-03-22", to: "2026-03-24", days: 3, status: "Rejected", reason: "Holiday trip" },
-];
-
 export const attendanceWeek = [
   { day: "Mon", in: "09:12", out: "18:34", hours: 9.4 },
   { day: "Tue", in: "09:02", out: "18:51", hours: 9.8 },

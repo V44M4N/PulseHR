@@ -1,3 +1,5 @@
+import { useLeaveBalances, useLeaveRequests, useTeamLeave, balanceView, requestView } from "@/hooks/useLeave";
+import { QueryState } from "@/components/QueryState";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
@@ -5,12 +7,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, CheckCircle2, Clock, TrendingUp, Users, Wallet, Plus, ArrowUpRight, Cake, PartyPopper } from "lucide-react";
-import { currentUser, leaveBalances, recentLeaves, announcements, attendanceWeek } from "@/lib/mock-data";
+import { currentUser, announcements, attendanceWeek } from "@/lib/mock-data";
 import { useRole } from "@/context/RoleContext";
 import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const { role } = useRole();
+  const teamQuery = useTeamLeave();
+  const balancesQuery = useLeaveBalances();
+  const requestsQuery = useLeaveRequests();
+  const leaveBalances = (balancesQuery.data?.data ?? []).map(balanceView);
+  const recentLeaves = (requestsQuery.data?.data ?? []).map(requestView);
   const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening";
 
   return (
@@ -22,22 +29,20 @@ export default function Dashboard() {
           <div>
             <div className="text-sm text-primary-foreground/70 font-medium">{greeting}, {currentUser.name.split(" ")[0]} 👋</div>
             <h1 className="text-2xl md:text-4xl font-display font-bold mt-1 text-balance">Welcome back to Pulse HR</h1>
-            <p className="text-primary-foreground/70 mt-2 text-sm max-w-xl">You have <span className="text-accent font-medium">3 pending approvals</span> and <span className="text-accent font-medium">1 leave</span> coming up this week.</p>
+            <p className="text-primary-foreground/70 mt-2 text-sm max-w-xl">You have <span className="text-accent font-medium">3 pending approvals</span> and <span className="text-accent font-medium">{requestsQuery.data?.meta?.total ?? "…"} leave requests</span> in your history.</p>
           </div>
           <div className="flex gap-2">
             <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-glow">
               <Clock className="h-4 w-4" /> Clock in
             </Button>
-            <Button size="lg" variant="outline" className="bg-white/10 border-white/20 text-primary-foreground hover:bg-white/20">
-              <Plus className="h-4 w-4" /> Apply leave
-            </Button>
+            <Button asChild size="lg" variant="outline" className="bg-white/10 border-white/20 text-primary-foreground hover:bg-white/20"><Link to="/leave"><Plus className="h-4 w-4" /> Apply leave</Link></Button>
           </div>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Leave balance" value="24" delta="6 used this quarter" icon={Calendar} accent="accent" />
+        <StatCard label="Leave balance" value={balancesQuery.isPending ? "…" : balancesQuery.error ? "—" : leaveBalances.reduce((sum, item) => sum + item.balance, 0)} icon={Calendar} accent="accent" />
         <StatCard label="Hours this week" value="46.7" delta="On track" trend="up" icon={Clock} accent="info" />
         <StatCard label="Pending approvals" value={role === "manager" || role === "hr" ? 7 : 1} delta="1 high priority" trend="down" icon={CheckCircle2} accent="warning" />
         <StatCard label="Net pay (Mar)" value="₹1.51L" delta="Paid on 31 Mar" trend="up" icon={Wallet} accent="primary" />
@@ -54,6 +59,7 @@ export default function Dashboard() {
             <Link to="/leave"><Button variant="ghost" size="sm">View all <ArrowUpRight className="h-3 w-3" /></Button></Link>
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
+            <QueryState loading={balancesQuery.isPending} error={balancesQuery.error} retry={balancesQuery.refetch} />
             {leaveBalances.map(lb => (
               <div key={lb.type} className="space-y-2">
                 <div className="flex items-baseline justify-between">
@@ -61,7 +67,7 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground"><span className="text-foreground font-semibold text-base">{lb.balance}</span> / {lb.total}</span>
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${(lb.balance/lb.total)*100}%`, background: lb.color }} />
+                  <div className="h-full rounded-full transition-all" style={{ width: `${(lb.total ? lb.balance/lb.total : 0)*100}%`, background: lb.color }} />
                 </div>
               </div>
             ))}
@@ -90,8 +96,8 @@ export default function Dashboard() {
             <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/40">
               <Users className="h-4 w-4 text-info mt-0.5" />
               <div>
-                <div className="text-sm font-medium">5 teammates on leave</div>
-                <div className="text-xs text-muted-foreground">2 returning tomorrow</div>
+                <div className="text-sm font-medium">{teamQuery.data?.data.length ?? "—"} team leave requests this month</div>
+                <div className="text-xs text-muted-foreground">{role === "employee" ? "Available to managers and HR" : "Approved requests"}</div>
               </div>
             </div>
           </div>
@@ -106,6 +112,7 @@ export default function Dashboard() {
             <Link to="/leave"><Button variant="ghost" size="sm">All <ArrowUpRight className="h-3 w-3" /></Button></Link>
           </div>
           <div className="divide-y divide-border">
+            <QueryState loading={requestsQuery.isPending} error={requestsQuery.error} retry={requestsQuery.refetch} />
             {recentLeaves.map(l => (
               <div key={l.id} className="py-3 flex items-center justify-between gap-3">
                 <div>
