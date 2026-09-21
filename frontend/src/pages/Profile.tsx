@@ -6,10 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { currentUser } from "@/lib/mock-data";
+import { useRole } from "@/context/RoleContext";
 import { Mail, Phone, MapPin, Briefcase, Calendar, Building2, Edit3, Camera } from "lucide-react";
 
 export default function Profile() {
+  const { user } = useRole();
+  const currentUser = { name: user?.name ?? '', email: user?.email ?? '', designation: user?.designation ?? 'Employee', department: '—', manager: '—', employeeId: user?.employeeId ?? '', location: '—', avatar: user?.avatar ?? '' };
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <PageHeader title="My profile" description="Manage your personal and employment information." actions={

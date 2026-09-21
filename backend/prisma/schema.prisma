@@ -81,6 +81,7 @@ model Employee {
   expenses         Expense[]
   tickets          HelpdeskTicket[]
   onboardingTasks  OnboardingTask[]
+  salaryStructure  SalaryStructure?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -88,6 +89,21 @@ model Employee {
   @@index([managerId])
   @@index([status])
   @@map("employees")
+}
+
+model SalaryStructure {
+  id                 String   @id @default(cuid())
+  employeeId         String   @unique
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  monthlyGross       Decimal  @db.Decimal(12, 2)
+  basicPercent       Decimal  @default(50) @db.Decimal(5, 2)
+  hraPercent         Decimal  @default(20) @db.Decimal(5, 2)
+  pfPercent          Decimal  @default(12) @db.Decimal(5, 2)
+  tdsPercent         Decimal  @default(10) @db.Decimal(5, 2)
+  professionalTax    Decimal  @default(200) @db.Decimal(10, 2)
+  effectiveFrom      DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 enum EmployeeStatus {

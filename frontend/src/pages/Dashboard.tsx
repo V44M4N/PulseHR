@@ -7,12 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, CheckCircle2, Clock, TrendingUp, Users, Wallet, Plus, ArrowUpRight, Cake, PartyPopper } from "lucide-react";
-import { currentUser, announcements, attendanceWeek } from "@/lib/mock-data";
+import { announcements, attendanceWeek } from "@/lib/mock-data";
 import { useRole } from "@/context/RoleContext";
 import { Link } from "react-router-dom";
 
 export default function Dashboard() {
-  const { role } = useRole();
+  const { role, user } = useRole();
   const teamQuery = useTeamLeave();
   const balancesQuery = useLeaveBalances();
   const requestsQuery = useLeaveRequests();
@@ -27,7 +27,7 @@ export default function Dashboard() {
         <div className="absolute inset-0 bg-gradient-hero opacity-60" />
         <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <div className="text-sm text-primary-foreground/70 font-medium">{greeting}, {currentUser.name.split(" ")[0]} 👋</div>
+            <div className="text-sm text-primary-foreground/70 font-medium">{greeting}, {user?.name.split(" ")[0]} 👋</div>
             <h1 className="text-2xl md:text-4xl font-display font-bold mt-1 text-balance">Welcome back to Pulse HR</h1>
             <p className="text-primary-foreground/70 mt-2 text-sm max-w-xl">You have <span className="text-accent font-medium">3 pending approvals</span> and <span className="text-accent font-medium">{requestsQuery.data?.meta?.total ?? "…"} leave requests</span> in your history.</p>
           </div>

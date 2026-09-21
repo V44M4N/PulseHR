@@ -4,18 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Mail, MapPin, Phone } from "lucide-react";
-import { employees } from "@/lib/mock-data";
+import { useState } from "react";
+import { useModuleQuery } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 
 export default function Directory() {
+  const [search, setSearch] = useState('');
+  const query = useModuleQuery<any>('directory'.split(), `/directory?search=${encodeURIComponent(search)}&page=1&limit=50`);
+  const employees = (query.data?.data?.employees ?? []).map((employee: any) => ({ ...employee, id: employee.employeeCode, name: `${employee.firstName} ${employee.lastName}`, role: employee.designation, dept: employee.department?.name ?? '—', location: employee.location?.name ?? '—' }));
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto">
       <PageHeader title="Employee directory" description="Find and connect with anyone in the company." />
       <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search by name, role, department…" className="pl-9" /></div>
+        <div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search by name, role, department…" className="pl-9" /></div>
         <Button variant="outline">All departments</Button>
         <Button variant="outline">All locations</Button>
       </div>
 
+      <QueryState loading={query.isPending} error={query.error} retry={query.refetch} />
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {employees.map(e => (
           <div key={e.id} className="card-surface p-5 hover:shadow-elevated hover:-translate-y-0.5 transition-all">

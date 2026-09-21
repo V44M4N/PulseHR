@@ -78,6 +78,12 @@ async function main() {
       },
     });
 
+    await prisma.salaryStructure.upsert({
+      where: { employeeId: employee.id },
+      update: {},
+      create: { employeeId: employee.id, monthlyGross: 150000 },
+    });
+
     return { user, employee };
   }
 

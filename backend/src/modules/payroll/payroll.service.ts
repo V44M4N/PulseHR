@@ -4,49 +4,11 @@ import { AppError, Errors }                 from '../../utils/errors';
 import { buildMeta, PaginationParams }      from '../../utils/pagination';
 import { nextPayrollCode, nextPayslipCode } from '../../utils/codeGen';
 import type { CreatePayrollRunDTO }          from './payroll.schema';
+import { computeSalary }                     from './payroll.calculator';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface SalaryBreakdown {
-  grossSalary: number;
-  earnings:    { basic: number; hra: number; special: number };
-  deductions:  { pf: number; tds: number; professional_tax: number };
-  netSalary:   number;
-}
-
-// ── Salary formula ────────────────────────────────────────────────────────────
-
-/**
- * MVP salary formula.
- * In production, gross salary comes from the employee salary structure in DB
- * (stored in CompanySetting / a dedicated SalaryStructure table).
- * For MVP, a deterministic gross is derived from the employee cuid so that
- * repeated processRun calls produce the same figures for the same employee.
- */
-function computeSalary(employeeId: string): SalaryBreakdown {
-  // Last 6 chars of cuid interpreted as base-36 → stable seed in [150 000 – 300 000]
-  const seed        = parseInt(employeeId.slice(-6), 36) || 0;
-  const grossSalary = 150_000 + (seed % 150_001);
-
-  const basic    = parseFloat((grossSalary * 0.5).toFixed(2));
-  const hra      = parseFloat((grossSalary * 0.2).toFixed(2));
-  const special  = parseFloat((grossSalary - basic - hra).toFixed(2));
-
-  const pf               = parseFloat((basic * 0.12).toFixed(2));
-  const tds              = parseFloat((grossSalary * 0.1).toFixed(2));
-  const professional_tax = 200;
-
-  const netSalary = parseFloat(
-    (grossSalary - pf - tds - professional_tax).toFixed(2),
-  );
-
-  return {
-    grossSalary,
-    earnings:   { basic, hra, special },
-    deductions: { pf, tds, professional_tax },
-    netSalary,
-  };
-}
+export { computeSalary } from './payroll.calculator';
 
 // ── Service methods ───────────────────────────────────────────────────────────
 
@@ -105,8 +67,7 @@ export async function createRun(dto: CreatePayrollRunDTO, _userId: string) {
 /**
  * Process a payroll run:
  *   1. Fetch all ACTIVE employees.
- *   2. Compute salary breakdown per employee using the MVP formula.
- *      (In production: read from employee salary structure in DB / CompanySetting.)
+ *   2. Compute salary breakdown from each employee's stored salary structure.
  *   3. Upsert one Payslip per employee — idempotent if called again on same period.
  *   4. Update the PayrollRun: status=PROCESSED, aggregate totals, processedById.
  *
@@ -127,7 +88,7 @@ export async function processRun(id: string, userId: string) {
 
   const employees = await prisma.employee.findMany({
     where:  { status: 'ACTIVE' },
-    select: { id: true, employeeCode: true },
+    include: { salaryStructure: true },
   });
 
   if (employees.length === 0) {
@@ -143,7 +104,12 @@ export async function processRun(id: string, userId: string) {
 
   await prisma.$transaction(async (tx) => {
     for (const emp of employees) {
-      const sal  = computeSalary(emp.id);
+      if (!emp.salaryStructure) throw new AppError('SALARY_STRUCTURE_MISSING', `Salary structure missing for ${emp.employeeCode}`, 400);
+      const sal  = computeSalary(Number(emp.salaryStructure.monthlyGross), {
+        basicPercent: Number(emp.salaryStructure.basicPercent), hraPercent: Number(emp.salaryStructure.hraPercent),
+        pfPercent: Number(emp.salaryStructure.pfPercent), tdsPercent: Number(emp.salaryStructure.tdsPercent),
+        professionalTax: Number(emp.salaryStructure.professionalTax),
+      });
       const code = await nextPayslipCode(emp.employeeCode, run.month, run.year);
 
       await tx.payslip.upsert({
