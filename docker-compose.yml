@@ -1,0 +1,52 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml — LOCAL DEV INFRA (postgres + redis only)
+#
+# Most common workflow:
+#   docker compose up -d          ← start postgres + redis
+#   cd frontend && npm run dev    ← run frontend locally on :8080
+#   cd backend  && npm run dev    ← run backend locally on :4000
+#
+# Your root .env is used as-is (DATABASE_URL points to localhost:5432).
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: pulsehr-dev
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-pulsehr}
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pulsehr}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

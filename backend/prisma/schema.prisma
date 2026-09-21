@@ -1,0 +1,538 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(EMPLOYEE)
+  isActive     Boolean  @default(true)
+  mfaSecret    String?
+  employee     Employee?
+  sessions     Session[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum UserRole {
+  EMPLOYEE
+  MANAGER
+  HR
+  ADMIN
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ─── Core HR ─────────────────────────────────────────────────────────────────
+
+model Employee {
+  id               String          @id @default(cuid())
+  employeeCode     String          @unique
+  userId           String?         @unique
+  user             User?           @relation(fields: [userId], references: [id])
+  firstName        String
+  lastName         String
+  email            String          @unique
+  phone            String?
+  designation      String
+  departmentId     String
+  department       Department      @relation(fields: [departmentId], references: [id])
+  managerId        String?
+  manager          Employee?       @relation("Reports", fields: [managerId], references: [id])
+  reports          Employee[]      @relation("Reports")
+  locationId       String?
+  location         Location?       @relation(fields: [locationId], references: [id])
+  dateOfJoining    DateTime
+  dateOfBirth      DateTime?
+  gender           String?
+  employmentType   String          @default("Full-time")
+  status           EmployeeStatus  @default(ACTIVE)
+  avatarUrl        String?
+  bankDetails      BankDetails?
+  taxInfo          TaxInfo?
+  emergencyContacts EmergencyContact[]
+  leaveBalances    LeaveBalance[]
+  leaveRequests    LeaveRequest[]
+  attendanceRecords AttendanceRecord[]
+  payslips         Payslip[]
+  documents        Document[]
+  expenses         Expense[]
+  tickets          HelpdeskTicket[]
+  onboardingTasks  OnboardingTask[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([departmentId])
+  @@index([managerId])
+  @@index([status])
+  @@map("employees")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  PROBATION
+  NOTICE
+  INACTIVE
+  TERMINATED
+}
+
+model Department {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  headId    String?
+  parentId  String?
+  parent    Department?  @relation("SubDepts", fields: [parentId], references: [id])
+  children  Department[] @relation("SubDepts")
+  employees Employee[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("departments")
+}
+
+model Location {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  city      String
+  country   String     @default("India")
+  timezone  String     @default("Asia/Kolkata")
+  employees Employee[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("locations")
+}
+
+model BankDetails {
+  id            String   @id @default(cuid())
+  employeeId    String   @unique
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  accountNumber String
+  ifscCode      String
+  bankName      String
+  accountType   String   @default("Savings")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("bank_details")
+}
+
+model TaxInfo {
+  id            String   @id @default(cuid())
+  employeeId    String   @unique
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  panNumber     String?
+  aadhaarLast4  String?
+  taxRegime     String   @default("new")
+  pfNumber      String?
+  esiNumber     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("tax_info")
+}
+
+model EmergencyContact {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name         String
+  relationship String
+  phone        String
+  email        String?
+  createdAt    DateTime @default(now())
+
+  @@index([employeeId])
+  @@map("emergency_contacts")
+}
+
+// ─── Leave ───────────────────────────────────────────────────────────────────
+
+model LeaveType {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  defaultDays  Int
+  color        String
+  carryForward Boolean       @default(false)
+  maxCarryDays Int?
+  isActive     Boolean       @default(true)
+  balances     LeaveBalance[]
+  requests     LeaveRequest[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year        Int
+  total       Int
+  used        Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([employeeId, year])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id             String      @id @default(cuid())
+  code           String      @unique
+  employeeId     String
+  employee       Employee    @relation(fields: [employeeId], references: [id])
+  leaveTypeId    String
+  leaveType      LeaveType   @relation(fields: [leaveTypeId], references: [id])
+  fromDate       DateTime
+  toDate         DateTime
+  days           Int
+  reason         String
+  status         LeaveStatus @default(PENDING)
+  approvedById   String?
+  approvedAt     DateTime?
+  rejectedReason String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([employeeId, status])
+  @@index([fromDate, toDate])
+  @@map("leave_requests")
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// ─── Attendance ──────────────────────────────────────────────────────────────
+
+model AttendanceRecord {
+  id          String           @id @default(cuid())
+  employeeId  String
+  employee    Employee         @relation(fields: [employeeId], references: [id])
+  date        DateTime         @db.Date
+  clockIn     DateTime?
+  clockOut    DateTime?
+  hoursWorked Float?
+  status      AttendanceStatus @default(PRESENT)
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+  @@map("attendance_records")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  ON_LEAVE
+  HOLIDAY
+  WEEKEND
+}
+
+// ─── Payroll ─────────────────────────────────────────────────────────────────
+
+model Payslip {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  employeeId  String
+  employee    Employee      @relation(fields: [employeeId], references: [id])
+  month       Int
+  year        Int
+  grossSalary Float
+  earnings    Json
+  deductions  Json
+  netSalary   Float
+  status      PayslipStatus @default(DRAFT)
+  pdfPath     String?
+  processedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([employeeId, month, year])
+  @@index([employeeId])
+  @@map("payslips")
+}
+
+enum PayslipStatus {
+  DRAFT
+  PROCESSED
+  PAID
+}
+
+model PayrollRun {
+  id            String        @id @default(cuid())
+  code          String        @unique
+  month         Int
+  year          Int
+  status        PayrollStatus @default(DRAFT)
+  totalGross    Float?
+  totalNet      Float?
+  employeeCount Int?
+  processedById String?
+  processedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([month, year])
+  @@map("payroll_runs")
+}
+
+enum PayrollStatus {
+  DRAFT
+  PROCESSING
+  PROCESSED
+  PAID
+  CANCELLED
+}
+
+// ─── Documents ───────────────────────────────────────────────────────────────
+
+model Document {
+  id         String           @id @default(cuid())
+  employeeId String?
+  employee   Employee?        @relation(fields: [employeeId], references: [id])
+  name       String
+  category   DocumentCategory
+  filePath   String
+  fileSize   String
+  mimeType   String
+  uploadedBy String
+  isPublic   Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([employeeId])
+  @@map("documents")
+}
+
+enum DocumentCategory {
+  EMPLOYMENT
+  TAX
+  COMPENSATION
+  IDENTITY
+  POLICY
+  OTHER
+}
+
+// ─── Expenses ────────────────────────────────────────────────────────────────
+
+model Expense {
+  id             String        @id @default(cuid())
+  code           String        @unique
+  employeeId     String
+  employee       Employee      @relation(fields: [employeeId], references: [id])
+  date           DateTime
+  category       String
+  amount         Float
+  currency       String        @default("INR")
+  description    String
+  receiptPath    String?
+  status         ExpenseStatus @default(PENDING)
+  approvedById   String?
+  approvedAt     DateTime?
+  rejectedReason String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([employeeId, status])
+  @@map("expenses")
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REIMBURSED
+  UNDER_REVIEW
+}
+
+// ─── Helpdesk ────────────────────────────────────────────────────────────────
+
+model HelpdeskTicket {
+  id          String         @id @default(cuid())
+  code        String         @unique
+  employeeId  String
+  employee    Employee       @relation(fields: [employeeId], references: [id])
+  title       String
+  description String
+  category    String
+  priority    TicketPriority @default(MEDIUM)
+  status      TicketStatus   @default(OPEN)
+  assignedTo  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([employeeId, status])
+  @@map("helpdesk_tickets")
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ─── Feed ────────────────────────────────────────────────────────────────────
+
+model Announcement {
+  id          String   @id @default(cuid())
+  authorId    String
+  authorName  String
+  title       String
+  body        String
+  reactions   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("announcements")
+}
+
+// ─── Recruitment ─────────────────────────────────────────────────────────────
+
+model JobRequisition {
+  id           String       @id @default(cuid())
+  code         String       @unique
+  title        String
+  departmentId String?
+  location     String?
+  type         String       @default("Full-time")
+  status       JobStatus    @default(OPEN)
+  openedById   String
+  closedAt     DateTime?
+  candidates   Candidate[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("job_requisitions")
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  ON_HOLD
+  CLOSED
+}
+
+model Candidate {
+  id          String         @id @default(cuid())
+  code        String         @unique
+  jobId       String?
+  job         JobRequisition? @relation(fields: [jobId], references: [id])
+  name        String
+  email       String
+  phone       String?
+  stage       CandidateStage @default(APPLIED)
+  source      String
+  appliedDate DateTime
+  rating      Int?
+  cvPath      String?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([jobId, stage])
+  @@map("candidates")
+}
+
+enum CandidateStage {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+}
+
+// ─── Onboarding ──────────────────────────────────────────────────────────────
+
+model OnboardingTask {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  title       String
+  description String?
+  owner       String
+  dueDate      DateTime?
+  isCompleted  Boolean  @default(false)
+  completedAt  DateTime?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@map("onboarding_tasks")
+}
+
+// ─── Admin ───────────────────────────────────────────────────────────────────
+
+model CompanySetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  category  String
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("company_settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  actorId   String?
+  actorName String
+  action    String
+  target    String
+  ipAddress String?
+  metadata  Json?
+
+  @@index([timestamp])
+  @@index([actorId])
+  @@map("audit_logs")
+}

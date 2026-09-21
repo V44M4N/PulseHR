@@ -1,0 +1,117 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.prod.yml — PRODUCTION
+#
+# Usage:
+#   cp .env.example .env          ← fill in real secrets
+#   docker compose -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Architecture:
+#   browser → nginx:80 → /api/* → backend:4000
+#                              → /      → static files
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: pulsehr-prod
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-pulsehr}
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # No port exposure in prod — only backend can reach it via internal network
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pulsehr}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Backend ──────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    restart: always
+    env_file: .env
+    environment:
+      NODE_ENV:     production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pulsehr}
+      REDIS_URL:    redis://:${REDIS_PASSWORD:-}@redis:6379
+    volumes:
+      # Only needed when FILE_STORAGE=local; replace with nothing when using S3
+      - uploads_data:/app/uploads
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Frontend + Nginx ─────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        # /api/v1 is relative — Nginx proxies it to backend:4000
+        VITE_API_BASE_URL: /api/v1
+        VITE_APP_NAME:     ${VITE_APP_NAME:-PulseHR}
+        VITE_ENABLE_MOCK:  "false"
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - internal
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
