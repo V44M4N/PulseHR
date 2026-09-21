@@ -5,15 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useRole } from "@/context/RoleContext";
-import { ROLE_LABEL, Role } from "@/lib/roles";
-import { currentUser } from "@/lib/mock-data";
+import { ROLE_LABEL } from "@/lib/roles";
+import { Link } from "react-router-dom";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem
+  DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 
 export function TopBar() {
-  const { role, setRole } = useRole();
+  const { role, user: currentUser, logout } = useRole();
+  if (!currentUser) return null;
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-border bg-background/80 backdrop-blur-xl flex items-center gap-3 px-4 md:px-6">
       <SidebarTrigger />
@@ -42,14 +43,7 @@ export function TopBar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Switch role (demo)</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuRadioGroup value={role} onValueChange={(v) => setRole(v as Role)}>
-              <DropdownMenuRadioItem value="employee">Employee</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="manager">Manager</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="hr">HR Manager</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="admin">Super Admin</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
+            <DropdownMenuLabel>Signed in as {ROLE_LABEL[role]}</DropdownMenuLabel>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -63,7 +57,7 @@ export function TopBar() {
             <button className="flex items-center gap-2 rounded-lg hover:bg-muted px-2 py-1 transition-colors">
               <Avatar className="h-8 w-8 ring-2 ring-accent/20">
                 <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                <AvatarFallback>AS</AvatarFallback>
+                <AvatarFallback>{currentUser.name.split(" ").map(part => part[0]).join("").slice(0, 2)}</AvatarFallback>
               </Avatar>
               <div className="hidden lg:block text-left">
                 <div className="text-xs font-medium leading-tight">{currentUser.name}</div>
@@ -75,9 +69,9 @@ export function TopBar() {
             <DropdownMenuLabel>{currentUser.name}</DropdownMenuLabel>
             <DropdownMenuLabel className="text-xs text-muted-foreground font-normal -mt-2">{currentUser.email}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>My profile</DropdownMenuItem>
+            <DropdownMenuItem asChild><Link to="/profile">My profile</Link></DropdownMenuItem>
             <DropdownMenuItem>Preferences</DropdownMenuItem>
-            <DropdownMenuItem>Sign out</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void logout()}>Sign out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

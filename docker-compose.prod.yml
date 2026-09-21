@@ -90,7 +90,7 @@ services:
       dockerfile: docker/Dockerfile.frontend
       args:
         # /api/v1 is relative — Nginx proxies it to backend:4000
-        VITE_API_BASE_URL: /api/v1
+        VITE_API_URL: /api/v1
         VITE_APP_NAME:     ${VITE_APP_NAME:-PulseHR}
         VITE_ENABLE_MOCK:  "false"
     restart: always

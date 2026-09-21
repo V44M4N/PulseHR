@@ -60,7 +60,8 @@ export const refresh = async (req: Request, res: Response, next: NextFunction): 
   try {
     // Accept refresh token from cookie OR request body (body wins)
     const dto = req.body as RefreshDTO;
-    const tokenFromCookie = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+    const cookie = req.headers.cookie?.split(';').map(value => value.trim()).find(value => value.startsWith(`${REFRESH_COOKIE}=`));
+    const tokenFromCookie = cookie?.slice(REFRESH_COOKIE.length + 1);
     const refreshToken = dto.refreshToken || tokenFromCookie;
 
     if (!refreshToken) {
