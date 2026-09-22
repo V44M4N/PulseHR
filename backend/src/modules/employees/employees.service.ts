@@ -9,6 +9,7 @@ import {
   UpdateEmployeeDto,
   ListEmployeesQuery,
 } from './employees.schema';
+import { maskEmployeePii } from '../../utils/pii';
 
 // ─── Shared selects ───────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ export async function getById(id: string) {
     throw Errors.NOT_FOUND('Employee');
   }
 
-  return employee;
+  return maskEmployeePii(employee);
 }
 
 /**
@@ -246,7 +247,7 @@ export async function create(
   // Suppress unused variable lint; createdByUserId is kept for audit trail hooks
   void createdByUserId;
 
-  return employee;
+  return maskEmployeePii(employee);
 }
 
 /**
@@ -342,11 +343,12 @@ export async function update(id: string, dto: UpdateEmployeeDto) {
     data.manager = { connect: { id: dto.managerId } };
   }
 
-  return prisma.employee.update({
+  const updated = await prisma.employee.update({
     where: { id },
     data,
     select: fullSelect,
   });
+  return maskEmployeePii(updated);
 }
 
 /**

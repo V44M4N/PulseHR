@@ -2,8 +2,14 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Building2, Plus, MapPin, Users } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
+import { useModuleQuery } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 
 export default function OrgStructure() {
+  const departments = useModuleQuery<any>(['admin', 'departments'], '/admin/org/departments');
+  const locations = useModuleQuery<any>(['admin', 'locations'], '/admin/org/locations');
+  const departmentRows = departments.data?.data?.departments ?? departments.data?.data ?? [];
+  const locationRows = locations.data?.data?.locations ?? locations.data?.data ?? [];
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto">
       <PageHeader title="Organisation structure" description="Entities, departments, locations and grades." actions={

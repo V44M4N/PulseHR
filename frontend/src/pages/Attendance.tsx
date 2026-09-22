@@ -3,13 +3,18 @@ import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, MapPin, AlertCircle, Download } from "lucide-react";
-import { attendanceWeek } from "@/lib/mock-data";
+import { useModuleQuery, useModuleMutation } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 
 export default function Attendance() {
-  const month = Array.from({length: 30}, (_, i) => ({
-    day: i+1,
-    status: [0,6].includes((i+1)%7) ? "weekend" : i < 18 ? "present" : i === 18 ? "leave" : "—",
-  }));
+  const today = useModuleQuery<any>(['attendance', 'today'], '/attendance/today');
+  const week = useModuleQuery<any>(['attendance', 'week'], '/attendance/week');
+  const monthly = useModuleQuery<any>(['attendance', 'monthly'], `/attendance/monthly?month=${new Date().getMonth()+1}&year=${new Date().getFullYear()}`);
+  const clockIn = useModuleMutation(['attendance'], 'post', '/attendance/clock-in');
+  const clockOut = useModuleMutation(['attendance'], 'post', '/attendance/clock-out');
+  const attendanceWeek = (week.data?.data ?? []).map((r: any) => ({ day: new Date(r.date).toLocaleDateString('en-IN', { weekday: 'short' }), in: r.clockIn ? new Date(r.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—', hours: Number(r.hoursWorked ?? 0) }));
+  const month = (monthly.data?.data ?? []).map((r: any) => ({ day: new Date(r.date).getDate(), status: r.status === 'PRESENT' ? 'present' : r.status === 'WEEKEND' ? 'weekend' : '—' }));
+  const current = today.data?.data;
 
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto">
@@ -27,16 +32,16 @@ export default function Attendance() {
           <div className="relative">
             <div className="text-xs uppercase tracking-wider text-primary-foreground/60">Today's status</div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-4xl font-display font-bold">09:18</span>
-              <span className="text-xs text-primary-foreground/60">clocked in</span>
+              <span className="text-4xl font-display font-bold">{current?.clockIn ? new Date(current.clockIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—'}</span>
+              <span className="text-xs text-primary-foreground/60">{current?.clockIn ? 'clocked in' : 'not clocked in'}</span>
             </div>
             <div className="mt-1 text-sm text-primary-foreground/80 flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Bengaluru office</div>
             <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-              <div className="bg-white/10 rounded-lg p-3 backdrop-blur"><div className="text-xs text-primary-foreground/60">Hours</div><div className="font-semibold text-lg">5.4</div></div>
+              <div className="bg-white/10 rounded-lg p-3 backdrop-blur"><div className="text-xs text-primary-foreground/60">Hours</div><div className="font-semibold text-lg">{current?.hoursWorked ?? 0}</div></div>
               <div className="bg-white/10 rounded-lg p-3 backdrop-blur"><div className="text-xs text-primary-foreground/60">Break</div><div className="font-semibold text-lg">0.8</div></div>
               <div className="bg-white/10 rounded-lg p-3 backdrop-blur"><div className="text-xs text-primary-foreground/60">Net</div><div className="font-semibold text-lg">4.6</div></div>
             </div>
-            <Button className="w-full mt-6 bg-accent text-accent-foreground hover:bg-accent/90 shadow-glow">Clock out</Button>
+            <Button onClick={() => current?.clockIn ? clockOut.mutate({}) : clockIn.mutate({})} disabled={clockIn.isPending || clockOut.isPending} className="w-full mt-6 bg-accent text-accent-foreground hover:bg-accent/90 shadow-glow">{current?.clockIn ? 'Clock out' : 'Clock in'}</Button>
           </div>
         </div>
 
@@ -59,6 +64,8 @@ export default function Attendance() {
           </div>
         </div>
       </div>
+
+      <QueryState loading={today.isPending || week.isPending || monthly.isPending} error={today.error || week.error || monthly.error} retry={() => { void today.refetch(); void week.refetch(); void monthly.refetch(); }} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Present days" value="18" delta="This month" accent="accent" />

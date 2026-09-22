@@ -2,9 +2,16 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Download, Users, TrendingUp, DollarSign, Clock } from "lucide-react";
-import { headcountTrend, attritionByDept } from "@/lib/mock-data";
+import { useModuleQuery } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 
 export default function Analytics() {
+  const headcount = useModuleQuery<any>(['analytics', 'headcount'], '/hr/analytics/headcount');
+  const attrition = useModuleQuery<any>(['analytics', 'attrition'], '/hr/analytics/attrition');
+  const kpis = useModuleQuery<any>(['analytics', 'kpis'], '/hr/analytics/kpis');
+  const headcountTrend = headcount.data?.data ?? [];
+  const attritionByDept = attrition.data?.data ?? [];
+  const summary = kpis.data?.data ?? {};
   const max = Math.max(...headcountTrend.map(h=>h.value));
   const maxAttr = Math.max(...attritionByDept.map(a=>a.rate));
   return (
@@ -13,13 +20,14 @@ export default function Analytics() {
         <Button variant="outline"><Download className="h-4 w-4" /> Export report</Button>
       } />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Headcount" value="489" delta="+18 MoM" trend="up" icon={Users} accent="primary" />
-        <StatCard label="Attrition rate" value="8.4%" delta="-1.2 pts" trend="up" icon={TrendingUp} accent="accent" />
+        <StatCard label="Headcount" value={String(summary.totalEmployees ?? 0)} icon={Users} accent="primary" />
+        <StatCard label="Attrition rate" value={`${summary.attritionRate ?? 0}%`} icon={TrendingUp} accent="accent" />
         <StatCard label="Cost per hire" value="₹1.84L" delta="-12% YoY" trend="up" icon={DollarSign} accent="info" />
         <StatCard label="Time-to-fill" value="32d" delta="-4d" trend="up" icon={Clock} accent="warning" />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
+        <QueryState loading={headcount.isPending || attrition.isPending || kpis.isPending} error={headcount.error || attrition.error || kpis.error} retry={() => { void headcount.refetch(); void attrition.refetch(); void kpis.refetch(); }} />
         <div className="card-surface p-6">
           <h2 className="font-display font-semibold text-lg mb-4">Headcount trend</h2>
           <div className="flex items-end gap-3 h-56">

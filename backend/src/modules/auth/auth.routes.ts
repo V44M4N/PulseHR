@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
-import { LoginSchema, RefreshSchema } from './auth.schema';
+import { LoginSchema, RefreshSchema, MfaCodeSchema } from './auth.schema';
 import * as authController from './auth.controller';
 
 export const authRouter = Router();
@@ -33,3 +33,6 @@ authRouter.get(
   authenticate,
   authController.me,
 );
+
+authRouter.post('/mfa/setup', authenticate, authController.setupMfa);
+authRouter.post('/mfa/verify', authenticate, validate(MfaCodeSchema), authController.verifyMfa);

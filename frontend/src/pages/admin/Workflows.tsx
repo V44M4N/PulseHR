@@ -2,8 +2,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Workflow, Plus, Zap, ArrowRight } from "lucide-react";
+import { useModuleQuery } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 
-const workflows = [
+const workflowDefaults = [
   { name: "Leave approval — default", trigger: "Leave applied", steps: ["Manager","HR (>5 days)"], active: true, runs: 348 },
   { name: "Expense reimbursement", trigger: "Expense submitted", steps: ["Manager","Finance"], active: true, runs: 124 },
   { name: "Probation confirmation", trigger: "Day 90 of joining", steps: ["Manager review","HR letter"], active: true, runs: 28 },
@@ -11,11 +13,15 @@ const workflows = [
 ];
 
 export default function Workflows() {
+  const query = useModuleQuery<any>(['admin', 'workflows'], '/admin/workflows');
+  const configured = query.data?.data ?? {};
+  const workflows = Object.keys(configured).length ? Object.entries(configured).map(([key, value]: any) => ({ name: key.replace('workflows.', ''), trigger: value.trigger || 'Configured workflow', steps: value.steps || [], active: value.enabled !== false, runs: value.runs || 0 })) : workflowDefaults;
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto">
       <PageHeader title="Workflows & automation" description="Approval chains and event-triggered automations." actions={
         <Button className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="h-4 w-4" /> New workflow</Button>
       } />
+      <QueryState loading={query.isPending} error={query.error} retry={query.refetch} />
       <div className="space-y-3">
         {workflows.map(w => (
           <div key={w.name} className="card-surface p-5">

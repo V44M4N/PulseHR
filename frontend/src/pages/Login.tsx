@@ -11,6 +11,7 @@ export default function Login() {
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const requested = location.state?.from;
@@ -20,7 +21,7 @@ export default function Login() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setPending(true); setError('');
-    try { await login(email.trim(), password); }
+    try { await login(email.trim(), password, mfaCode || undefined); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to sign in'); }
     finally { setPending(false); }
   };
@@ -30,6 +31,7 @@ export default function Login() {
       <CardContent><form onSubmit={submit} className="space-y-4">
         <div className="space-y-2"><Label htmlFor="email">Email</Label><Input id="email" type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} disabled={pending} /></div>
         <div className="space-y-2"><Label htmlFor="password">Password</Label><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} disabled={pending} /></div>
+        <div className="space-y-2"><Label htmlFor="mfaCode">Authenticator code (if enabled)</Label><Input id="mfaCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="123456" value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} disabled={pending} /></div>
         {(error || sessionError) && <p role="alert" className="text-sm text-destructive">{error || sessionError}</p>}
         <Button type="submit" className="w-full" disabled={pending}>{pending ? 'Signing in…' : 'Sign in'}</Button>
       </form></CardContent>

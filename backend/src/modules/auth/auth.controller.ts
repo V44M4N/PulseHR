@@ -109,3 +109,11 @@ export const me = async (req: Request, res: Response, next: NextFunction): Promi
     next(err);
   }
 };
+
+export const setupMfa = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try { res.json(ok(await authService.setupMfa(req.user.sub))); } catch (err) { next(err); }
+};
+
+export const verifyMfa = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try { res.json(ok(await authService.verifyMfa(req.user.sub, req.body.code))); } catch (err) { next(err); }
+};

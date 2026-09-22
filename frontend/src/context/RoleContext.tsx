@@ -24,7 +24,7 @@ interface RoleContextValue {
   role: Role;
   isLoading: boolean;
   sessionError: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, mfaCode?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 const RoleContext = createContext<RoleContextValue | undefined>(undefined);
@@ -57,10 +57,10 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
     return () => { active = false; unsubscribe(); };
   }, [queryClient]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, mfaCode?: string) => {
     setSessionError(null);
     const { data } = await apiRequest<{ accessToken: string }>('/auth/login', {
-      method: 'POST', body: JSON.stringify({ email, password }),
+      method: 'POST', body: JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) }),
     }, false);
     setAccessToken(data.accessToken);
     try {

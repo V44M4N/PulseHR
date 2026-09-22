@@ -3,10 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/StatCard";
 import { Receipt, Plus } from "lucide-react";
-import { expenses } from "@/lib/mock-data";
+import { useModuleQuery } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 
 export default function Expenses() {
-  const total = expenses.reduce((s,e)=>s+e.amount,0);
+  const query = useModuleQuery<any>(['expenses'], '/expenses?page=1&limit=100');
+  const expenses = query.data?.data?.expenses ?? [];
+  const total = expenses.reduce((s: number,e: any)=>s+Number(e.amount),0);
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
       <PageHeader title="Expense claims" description="Submit receipts and track reimbursements." actions={
@@ -19,6 +22,7 @@ export default function Expenses() {
         <StatCard label="Pending" value="₹13,320" accent="warning" />
       </div>
       <div className="card-surface p-6">
+        <QueryState loading={query.isPending} error={query.error} retry={query.refetch} />
         <h2 className="font-display font-semibold text-lg mb-4">Recent claims</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -26,16 +30,16 @@ export default function Expenses() {
               <tr><th className="text-left py-3 font-medium">ID</th><th className="text-left font-medium">Date</th><th className="text-left font-medium">Category</th><th className="text-left font-medium">Description</th><th className="text-right font-medium">Amount</th><th className="text-center font-medium">Status</th></tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {expenses.map(e => (
+              {expenses.map((e: any) => (
                 <tr key={e.id} className="hover:bg-muted/30">
-                  <td className="py-3 font-mono text-xs text-muted-foreground">{e.id}</td>
-                  <td className="text-muted-foreground">{e.date}</td>
+                  <td className="py-3 font-mono text-xs text-muted-foreground">{e.code || e.id}</td>
+                  <td className="text-muted-foreground">{e.date ? new Date(e.date).toLocaleDateString() : '—'}</td>
                   <td><Badge variant="outline">{e.category}</Badge></td>
-                  <td>{e.desc}</td>
-                  <td className="text-right font-semibold">₹{e.amount.toLocaleString("en-IN")}</td>
+                  <td>{e.description}</td>
+                  <td className="text-right font-semibold">₹{Number(e.amount).toLocaleString("en-IN")}</td>
                   <td className="text-center"><Badge variant="outline" className={
-                    e.status === "Approved" || e.status === "Reimbursed" ? "border-success/40 text-success bg-success/5" :
-                    e.status === "Pending" ? "border-warning/40 text-warning bg-warning/5" :
+                    e.status === "APPROVED" || e.status === "REIMBURSED" ? "border-success/40 text-success bg-success/5" :
+                    e.status === "PENDING" ? "border-warning/40 text-warning bg-warning/5" :
                     "border-info/40 text-info bg-info/5"
                   }>{e.status}</Badge></td>
                 </tr>

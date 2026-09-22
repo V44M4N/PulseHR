@@ -2,8 +2,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Plus, Check, X } from "lucide-react";
+import { useModuleQuery } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 
-const roles = [
+const roleLabels = [
   { name: "Super Admin", users: 3, color: "destructive" },
   { name: "HR Manager", users: 8, color: "accent" },
   { name: "Payroll Admin", users: 2, color: "warning" },
@@ -20,6 +22,9 @@ const matrix: Record<string, boolean[]> = {
 };
 
 export default function Roles() {
+  const query = useModuleQuery<any>(['admin', 'roles'], '/admin/roles');
+  const matrixData = query.data?.data ?? {};
+  const roles = roleLabels.map(role => ({ ...role, permissions: matrixData[role.name.toUpperCase().replace(' ', '_')] ?? matrix[role.name] }));
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto">
       <PageHeader title="Roles & permissions" description="Granular access control across modules." actions={
@@ -35,6 +40,7 @@ export default function Roles() {
         ))}
       </div>
       <div className="card-surface p-6 overflow-x-auto">
+        <QueryState loading={query.isPending} error={query.error} retry={query.refetch} />
         <h2 className="font-display font-semibold text-lg mb-4">Permission matrix</h2>
         <table className="w-full text-sm min-w-[700px]">
           <thead className="text-xs text-muted-foreground uppercase tracking-wider border-b border-border">
@@ -44,7 +50,7 @@ export default function Roles() {
             {roles.map(r => (
               <tr key={r.name}>
                 <td className="py-3 font-medium">{r.name}</td>
-                {matrix[r.name].map((v,i)=><td key={i} className="text-center">{v ? <Check className="h-4 w-4 text-success inline" /> : <X className="h-4 w-4 text-muted-foreground inline" />}</td>)}
+                {modules.map(module=><td key={module} className="text-center">{r.permissions?.[module.toLowerCase()] ? <Check className="h-4 w-4 text-success inline" /> : <X className="h-4 w-4 text-muted-foreground inline" />}</td>)}
               </tr>
             ))}
           </tbody>

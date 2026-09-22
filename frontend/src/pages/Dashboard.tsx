@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, CheckCircle2, Clock, TrendingUp, Users, Wallet, Plus, ArrowUpRight, Cake, PartyPopper } from "lucide-react";
-import { announcements, attendanceWeek } from "@/lib/mock-data";
+import { useModuleQuery } from "@/hooks/useModuleQuery";
 import { useRole } from "@/context/RoleContext";
 import { Link } from "react-router-dom";
 
@@ -16,6 +16,10 @@ export default function Dashboard() {
   const teamQuery = useTeamLeave();
   const balancesQuery = useLeaveBalances();
   const requestsQuery = useLeaveRequests();
+  const feedQuery = useModuleQuery<any>(['feed'], '/feed?page=1&limit=3');
+  const attendanceQuery = useModuleQuery<any>(['attendance', 'week'], '/attendance/week');
+  const announcements = feedQuery.data?.data?.announcements ?? [];
+  const attendanceWeek = (attendanceQuery.data?.data ?? []).map((r: any) => ({ day: new Date(r.date).toLocaleDateString('en-IN', { weekday: 'short' }), hours: Number(r.hoursWorked ?? 0) }));
   const leaveBalances = (balancesQuery.data?.data ?? []).map(balanceView);
   const recentLeaves = (requestsQuery.data?.data ?? []).map(requestView);
   const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening";

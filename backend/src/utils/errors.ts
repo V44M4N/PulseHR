@@ -19,6 +19,8 @@ export const Errors = {
   TOKEN_INVALID:            () => new AppError('TOKEN_INVALID',            'Invalid or expired token', 401),
   TOKEN_REVOKED:            () => new AppError('TOKEN_REVOKED',            'Token has been revoked', 401),
   ACCOUNT_INACTIVE:         () => new AppError('ACCOUNT_INACTIVE',         'Account is deactivated', 403),
+  MFA_REQUIRED:              () => new AppError('MFA_REQUIRED',              'A six-digit authenticator code is required', 401),
+  MFA_INVALID:               () => new AppError('MFA_INVALID',               'The authenticator code is invalid or expired', 401),
   FORBIDDEN:                () => new AppError('FORBIDDEN',                'Insufficient permissions', 403),
   // Resources
   NOT_FOUND:                (r: string) => new AppError('NOT_FOUND',       `${r} not found`, 404),

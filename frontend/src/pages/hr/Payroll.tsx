@@ -3,15 +3,12 @@ import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Users, FileText, Play, Lock, Download } from "lucide-react";
-
-const cycles = [
-  { month: "April 2026", status: "Draft", count: 489, amount: "₹6.42 Cr", lock: false },
-  { month: "March 2026", status: "Disbursed", count: 487, amount: "₹6.38 Cr", lock: true },
-  { month: "February 2026", status: "Disbursed", count: 481, amount: "₹6.21 Cr", lock: true },
-  { month: "January 2026", status: "Disbursed", count: 478, amount: "₹6.15 Cr", lock: true },
-];
+import { useModuleQuery } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 
 export default function Payroll() {
+  const query = useModuleQuery<any>(['payroll', 'runs'], '/hr/payroll/runs?page=1&limit=100');
+  const cycles = query.data?.data?.runs ?? [];
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto">
       <PageHeader title="Payroll" description="Run, audit and disburse payroll across cycles." actions={
@@ -29,6 +26,7 @@ export default function Payroll() {
       </div>
 
       <div className="card-surface p-6">
+        <QueryState loading={query.isPending} error={query.error} retry={query.refetch} />
         <h2 className="font-display font-semibold text-lg mb-4">Payroll cycles</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -36,13 +34,13 @@ export default function Payroll() {
               <tr><th className="text-left py-3 font-medium">Cycle</th><th className="text-left font-medium">Employees</th><th className="text-left font-medium">Amount</th><th className="text-center font-medium">Status</th><th className="text-center font-medium">Lock</th><th></th></tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {cycles.map(c => (
-                <tr key={c.month} className="hover:bg-muted/30">
-                  <td className="py-3 font-medium">{c.month}</td>
-                  <td>{c.count}</td>
-                  <td className="font-semibold">{c.amount}</td>
-                  <td className="text-center"><Badge variant="outline" className={c.status==="Disbursed"?"border-success/40 text-success bg-success/5":"border-warning/40 text-warning bg-warning/5"}>{c.status}</Badge></td>
-                  <td className="text-center">{c.lock ? <Lock className="h-3.5 w-3.5 text-muted-foreground inline" /> : "—"}</td>
+              {cycles.map((c: any) => (
+                <tr key={c.id} className="hover:bg-muted/30">
+                  <td className="py-3 font-medium">{c.monthName ?? `${c.month ?? ''} ${c.year ?? ''}`}</td>
+                  <td>{c.employeeCount ?? c.count ?? c._count?.payslips ?? 0}</td>
+                  <td className="font-semibold">{c.totalNet ? `₹${Number(c.totalNet).toLocaleString('en-IN')}` : c.amount ?? '—'}</td>
+                  <td className="text-center"><Badge variant="outline" className={c.status==="PAID"?"border-success/40 text-success bg-success/5":"border-warning/40 text-warning bg-warning/5"}>{c.status}</Badge></td>
+                  <td className="text-center">{c.status === 'PAID' ? <Lock className="h-3.5 w-3.5 text-muted-foreground inline" /> : "—"}</td>
                   <td className="text-right"><Button variant="ghost" size="sm"><Download className="h-3.5 w-3.5" /></Button></td>
                 </tr>
               ))}

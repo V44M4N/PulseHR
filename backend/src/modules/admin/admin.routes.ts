@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../../middleware/auth';
 import { authorize } from '../../middleware/rbac';
+import { enforceIpAllowlist } from '../../middleware/ipAllowlist';
 import { rolesRouter }     from './roles/roles.routes';
 import { orgRouter }       from './org/org.routes';
 import { settingsRouter }  from './settings/settings.routes';
@@ -12,6 +13,7 @@ export const adminRouter = Router();
 // All admin routes require authentication + ADMIN role
 adminRouter.use(authenticate);
 adminRouter.use(authorize('ADMIN'));
+adminRouter.use(enforceIpAllowlist);
 
 adminRouter.use('/roles',      rolesRouter);
 adminRouter.use('/org',        orgRouter);

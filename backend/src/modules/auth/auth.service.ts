@@ -7,6 +7,51 @@ import { env } from '../../config/env';
 import { AppError, Errors } from '../../utils/errors';
 import type { LoginDTO, RefreshDTO } from './auth.schema';
 
+function base32Decode(value: string): Buffer {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const clean = value.replace(/=+$/, '').toUpperCase();
+  let bits = '';
+  for (const char of clean) {
+    const index = alphabet.indexOf(char);
+    if (index < 0) throw new Error('Invalid base32 secret');
+    bits += index.toString(2).padStart(5, '0');
+  }
+  const bytes: number[] = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2));
+  return Buffer.from(bytes);
+}
+
+export function verifyTotp(secret: string, code: string, timestamp = Date.now()): boolean {
+  const key = base32Decode(secret);
+  const counter = Math.floor(timestamp / 30000);
+  for (const offset of [-1, 0, 1]) {
+    const buffer = Buffer.alloc(8);
+    buffer.writeBigUInt64BE(BigInt(counter + offset));
+    const digest = crypto.createHmac('sha1', key).update(buffer).digest();
+    const index = digest[digest.length - 1] & 0x0f;
+    const binary = ((digest[index] & 0x7f) << 24) | (digest[index + 1] << 16) | (digest[index + 2] << 8) | digest[index + 3];
+    if (String(binary % 1_000_000).padStart(6, '0') === code) return true;
+  }
+  return false;
+}
+
+function randomBase32Secret(): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bytes = crypto.randomBytes(20);
+  let result = '';
+  let buffer = 0; let bits = 0;
+  for (const byte of bytes) { buffer = (buffer << 8) | byte; bits += 8; while (bits >= 5) { result += alphabet[(buffer >>> (bits - 5)) & 31]; bits -= 5; } }
+  if (bits > 0) result += alphabet[(buffer << (5 - bits)) & 31];
+  return result;
+}
+
+async function mfaRequired(user: { role: string; mfaSecret: string | null }): Promise<boolean> {
+  const setting = await prisma.companySetting.findUnique({ where: { key: 'auth.mfa' } });
+  const value = setting?.value as { enabled?: boolean; requiredForRoles?: string[]; required_for_roles?: string[] } | undefined;
+  const roles = value?.requiredForRoles ?? value?.required_for_roles ?? ['ADMIN'];
+  return Boolean(value?.enabled && roles.includes(user.role) && user.mfaSecret);
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface AuthTokens {
@@ -110,6 +155,11 @@ export async function login(dto: LoginDTO, ipAddress?: string, userAgent?: strin
     throw new AppError('NO_EMPLOYEE_PROFILE', 'No employee profile linked to this account', 403);
   }
 
+  if (await mfaRequired(user)) {
+    if (!dto.mfaCode) throw Errors.MFA_REQUIRED();
+    if (!verifyTotp(user.mfaSecret!, dto.mfaCode)) throw Errors.MFA_INVALID();
+  }
+
   const employeeId = user.employee.id;
   const name       = `${user.employee.firstName} ${user.employee.lastName}`;
 
@@ -141,6 +191,20 @@ export async function login(dto: LoginDTO, ipAddress?: string, userAgent?: strin
       employeeId,
     },
   };
+}
+
+export async function setupMfa(userId: string): Promise<{ secret: string; otpauthUrl: string }> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw Errors.NOT_FOUND('User');
+  const secret = randomBase32Secret();
+  await prisma.user.update({ where: { id: userId }, data: { mfaSecret: secret } });
+  return { secret, otpauthUrl: `otpauth://totp/PulseHR:${encodeURIComponent(user.email)}?secret=${secret}&issuer=PulseHR` };
+}
+
+export async function verifyMfa(userId: string, code: string): Promise<{ enabled: true }> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { mfaSecret: true } });
+  if (!user?.mfaSecret || !verifyTotp(user.mfaSecret, code)) throw Errors.MFA_INVALID();
+  return { enabled: true };
 }
 
 /**

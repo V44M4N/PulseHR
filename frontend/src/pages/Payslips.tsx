@@ -2,14 +2,17 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, FileText, TrendingUp } from "lucide-react";
-import { payslips } from "@/lib/mock-data";
+import { useModuleQuery } from "@/hooks/useModuleQuery";
+import { QueryState } from "@/components/QueryState";
 import { StatCard } from "@/components/StatCard";
 
 const fmt = (n: number) => "₹" + n.toLocaleString("en-IN");
 
 export default function Payslips() {
-  const ytdGross = payslips.reduce((s,p)=>s+p.gross,0);
-  const ytdNet = payslips.reduce((s,p)=>s+p.net,0);
+  const query = useModuleQuery<any>(['payslips'], '/payslips?page=1&limit=100');
+  const payslips = query.data?.data?.payslips ?? [];
+  const ytdGross = payslips.reduce((s: number,p: any)=>s+Number(p.gross ?? p.grossPay ?? 0),0);
+  const ytdNet = payslips.reduce((s: number,p: any)=>s+Number(p.net ?? p.netPay ?? 0),0);
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
       <PageHeader title="Payslips & compensation" description="Download payslips, view tax summaries and submit declarations." actions={
@@ -24,6 +27,7 @@ export default function Payslips() {
       </div>
 
       <div className="card-surface p-6">
+        <QueryState loading={query.isPending} error={query.error} retry={query.refetch} />
         <h2 className="font-display font-semibold text-lg mb-4">Salary breakdown — March 2026</h2>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
@@ -58,12 +62,12 @@ export default function Payslips() {
               <tr><th className="text-left py-3 font-medium">Month</th><th className="text-right font-medium">Gross</th><th className="text-right font-medium">Deductions</th><th className="text-right font-medium">Net</th><th className="text-center font-medium">Status</th><th></th></tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {payslips.map(p => (
-                <tr key={p.month} className="hover:bg-muted/30">
-                  <td className="py-3 font-medium">{p.month}</td>
-                  <td className="text-right">{fmt(p.gross)}</td>
-                  <td className="text-right text-destructive">-{fmt(p.deductions)}</td>
-                  <td className="text-right font-semibold">{fmt(p.net)}</td>
+              {payslips.map((p: any) => (
+                <tr key={p.id} className="hover:bg-muted/30">
+                  <td className="py-3 font-medium">{p.month ?? `${p.monthName ?? ''} ${p.year ?? ''}`}</td>
+                  <td className="text-right">{fmt(Number(p.gross ?? p.grossPay ?? 0))}</td>
+                  <td className="text-right text-destructive">-{fmt(Number(p.deductions ?? p.totalDeductions ?? 0))}</td>
+                  <td className="text-right font-semibold">{fmt(Number(p.net ?? p.netPay ?? 0))}</td>
                   <td className="text-center"><Badge variant="outline" className="border-success/40 text-success bg-success/5">{p.status}</Badge></td>
                   <td className="text-right"><Button variant="ghost" size="sm"><Download className="h-3.5 w-3.5" /></Button></td>
                 </tr>
